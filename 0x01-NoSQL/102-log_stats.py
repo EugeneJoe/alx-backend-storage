@@ -39,7 +39,7 @@ if __name__ == "__main__":
     print("IPs:")
     x = 0
     for i in IPs_count:
-        print("\t{} {}".format(i.get('_id'), i.get('count')))
+        print("\t{}: {}".format(i.get('_id'), i.get('count')))
         x += 1
         if x > 9:
             break
