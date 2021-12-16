@@ -3,7 +3,7 @@
 Define a class Cache that deals with redis database operations
 """
 import redis
-from uuid import uuid4
+import uuid
 from typing import Union, Callable, Optional
 from functools import wraps
 
@@ -69,13 +69,13 @@ class Cache:
 
     @call_history
     @count_calls
-    def store(self, data: Union[str, int, float, bytes]) -> str:
+    def store(self, data: Union[str, bytes, int, float]) -> str:
         """
         Stores data in Redis with a randomly-generated key and returns the key
         Args:
             data (str, bytes, int, float): data to be stored
         """
-        key = str(uuid4())
+        key: uuid.UUID = str(uuid.uuid4())
         self._redis.set(key, data)
         return key
 
