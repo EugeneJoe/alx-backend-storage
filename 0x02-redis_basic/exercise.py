@@ -4,7 +4,7 @@ Define a class Cache that deals with redis database operations
 """
 import redis
 from uuid import uuid4
-from typing import Union, Callable
+from typing import Union, Callable, Optional
 from functools import wraps
 
 
@@ -13,12 +13,16 @@ def replay(method: Callable) -> None:
     Display the history of calls of a particular function
     """
     name = method.__qualname__
-    r = redis.Redis()
+    r = method.__self__._redis
+    count = r.get(name).decode('utf-8')
+    print("{} was called {} times:".format(name, count))
     inputs = r.lrange("{}:inputs".format(name), 0, -1)
     outputs = r.lrange("{}:outputs".format(name), 0, -1)
     res = zip(inputs, outputs)
     for i, o in res:
-        print("{} -> {}".format(i, str(o)))
+        i = i.decode('utf-8')
+        o = o.decode('utf-8')
+        print("{}(*{}) -> {}".format(name, i, o))
 
 
 def call_history(method: Callable) -> Callable:
@@ -26,13 +30,13 @@ def call_history(method: Callable) -> Callable:
     Takes a callable argument and returns a callable
     """
     @wraps(method)
-    def history(self: redis.Redis, key: Union[str, int, float, bytes]) -> str:
+    def history(self, *args, **kwargs):
         """
         Store history of inputs and outputs for a function
         """
         name = method.__qualname__
-        self._redis.rpush("{}:inputs".format(name), key)
-        result = method(self, key)
+        self._redis.rpush("{}:inputs".format(name), str(args))
+        result = method(self, *args, **kwargs)
         self._redis.rpush("{}:outputs".format(name), result)
         return result
     return history
@@ -43,12 +47,12 @@ def count_calls(method: Callable) -> Callable:
     Takes a callable argument and returns a callable
     """
     @wraps(method)
-    def counter(self: redis.Redis, key: Union[str, int, float, bytes]) -> str:
+    def counter(self, *args, **kwargs):
         """
         Count howm many times a method is called
         """
         self._redis.incr(method.__qualname__)
-        return method(self, key)
+        return method(self, *args, **kwargs)
     return counter
 
 
@@ -65,7 +69,7 @@ class Cache:
 
     @call_history
     @count_calls
-    def store(self: redis.Redis, data: Union[str, int, float, bytes]) -> str:
+    def store(self, data: Union[str, int, float, bytes]) -> str:
         """
         Stores data in Redis with a randomly-generated key and returns the key
         Args:
@@ -75,7 +79,8 @@ class Cache:
         self._redis.set(key, data)
         return key
 
-    def get(self: redis.Redis, key: str, fn: Callable = None):
+    def get(self: redis.Redis, key: str, fn: Optional[Callable]
+            = None) -> Union[str, bytes, int, float]:
         """
         Makes a get request to Redis using the provided key and converts the
         result to the desired format using the function passed
@@ -88,3 +93,25 @@ class Cache:
             val_conv = fn(val)
             return val_conv
         return val
+
+    def get_str(self, key: str) -> str:
+        """
+        Get data from Redis and return in str format
+        Args:
+            key (str): key to retrieve data for
+        Returns:
+            str: data
+        """
+        data = self.get(key, lambda x: x.decode('utf-8'))
+        return data
+
+    def get_int(self, key: str) -> int:
+        """
+        Get data from Redis and return in int format
+        Args:
+            key (str): key to retrieve data for
+        Returns:
+            int: data
+        """
+        data = self.get(key, lambda x: int(x))
+        return data
