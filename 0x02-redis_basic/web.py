@@ -16,6 +16,9 @@ def cached(func: Callable) -> Callable:
 
     @wraps(func)
     def wrapper(url):
+        """
+        cache results of func and keep track of how many times url is accessed
+        """
         redis.incr(f"count:{url}")
         content = redis.get(f"content:{url}")
         if content:
