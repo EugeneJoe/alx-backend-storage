@@ -12,19 +12,19 @@ def cached(func: Callable) -> Callable:
     """
     Decorator that caches the results of the function call
     """
-    redis = redis.Redis()
+    red = redis.Redis()
 
     @wraps(func)
     def wrapper(url):
         """
         cache results of func and keep track of how many times url is accessed
         """
-        redis.incr(f"count:{url}")
-        content = redis.get(f"content:{url}")
+        red.incr(f"count:{url}")
+        content = red.get(f"{url}")
         if content:
             return content.decode("utf-8")
         content = func(url)
-        redis.setex(f"content:{url}", 10, content)
+        red.setex(f"{url}", 10, content)
         return content
     return wrapper
 
